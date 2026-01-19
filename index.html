@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Greed - Grid Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #1a1a1a;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+    }
+
+    .container {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .game-board {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(11, 60px);
+      grid-template-rows: repeat(11, 60px);
+      gap: 2px;
+      background: #333;
+      padding: 2px;
+      border-radius: 5px;
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      position: relative;
+      cursor: default;
+      transition: all 0.1s ease;
+    }
+
+    .player {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid #000;
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    .value-0 { background: #1a1a1a; color: #888; }
+    .value-1 { background: #4ecdc4; color: #000; }
+    .value-2 { background: #44a5ff; color: #000; }
+    .value-3 { background: #95b8ff; color: #000; }
+    .value-4 { background: #ffb86c; color: #000; }
+    .value-5 { background: #ff6b9d; color: #000; }
+    .wall {
+      background: #2a2a2a;
+      color: #555;
+      font-size: 20px;
+    }
+
+    .corner {
+      box-shadow: inset 0 0 0 3px #ffd700;
+      position: relative;
+    }
+
+    .corner::after {
+      content: '★';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 12px;
+      color: #ffd700;
+    }
+
+    .controls {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .score-section {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    .score-display {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .score-label {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .high-score {
+      font-size: 18px;
+      color: #ffd700;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #444;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    button {
+      padding: 15px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background: #4ecdc4;
+      color: #000;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: #45b7af;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      color: #888;
+    }
+
+    .arrow-controls {
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      gap: 5px;
+      margin: 20px 0;
+    }
+
+    .arrow-up { grid-area: up; }
+    .arrow-down { grid-area: down; }
+    .arrow-left { grid-area: left; }
+    .arrow-right { grid-area: right; }
+
+    .arrow-controls button {
+      font-size: 24px;
+      padding: 10px;
+    }
+
+    .move-history {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .move-history h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+    }
+
+    .move-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .move-item {
+      padding: 8px;
+      background: #333;
+      border-radius: 3px;
+      font-size: 14px;
+      border-left: 3px solid #4ecdc4;
+    }
+
+    .move-list:empty::after {
+      content: 'No moves yet';
+      color: #666;
+      font-style: italic;
+      display: block;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .game-over-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .game-over-overlay.visible {
+      display: flex;
+    }
+
+    .game-over-content {
+      background: #2a2a2a;
+      padding: 40px;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 400px;
+      border: 3px solid #ff6b9d;
+    }
+
+    .game-over-content h2 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #ff6b9d;
+    }
+
+    .game-over-content p {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #ccc;
+    }
+
+    .game-over-content .final-score {
+      font-size: 36px;
+      color: #4ecdc4;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+
+    .game-over-content button {
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    .instructions {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    .instructions h4 {
+      color: #fff;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .grid {
+        grid-template-columns: repeat(11, 40px);
+        grid-template-rows: repeat(11, 40px);
+      }
+
+      .cell {
+        font-size: 16px;
+      }
+
+      .player {
+        width: 28px;
+        height: 28px;
+        border: 2px solid #000;
+      }
+
+      .controls {
+        width: 100%;
+      }
+    }
+
+    /* Scrollbar styling */
+    .move-history::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .move-history::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+
+    .move-history::-webkit-scrollbar-thumb {
+      background: #4ecdc4;
+      border-radius: 4px;
+    }
+
+    .move-history::-webkit-scrollbar-thumb:hover {
+      background: #45b7af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left: Game Grid -->
+    <div class="game-board">
+      <div id="grid" class="grid"></div>
+    </div>
+
+    <!-- Right: Controls -->
+    <div class="controls">
+      <!-- Score Display -->
+      <div class="score-section">
+        <div class="score-label">Current Score</div>
+        <div class="score-display" id="score">0</div>
+        <div class="high-score">
+          High Score: <span id="high-score">0</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="button-group">
+        <button id="restart">Restart Game</button>
+        <button id="undo" disabled>Undo Move</button>
+      </div>
+
+      <!-- Arrow Controls -->
+      <div class="arrow-controls">
+        <button class="arrow-up" data-direction="up">↑</button>
+        <button class="arrow-left" data-direction="left">←</button>
+        <button class="arrow-right" data-direction="right">→</button>
+        <button class="arrow-down" data-direction="down">↓</button>
+      </div>
+
+      <!-- Instructions -->
+      <div class="instructions">
+        <h4>How to Play</h4>
+        <p>Use arrow keys or buttons to move. You travel as many spaces as the number shows. Collect points by traversing cells. Avoid walls and edges!</p>
+        <p><strong>Bonus:</strong> Land on a corner (marked with ★) for +25 points!</p>
+        <p><strong>Keyboard:</strong> Arrow keys or WASD to move, U/Z to undo</p>
+      </div>
+
+      <!-- Move History -->
+      <div class="move-history">
+        <h3>Move History</h3>
+        <div id="move-list" class="move-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="game-over-overlay" class="game-over-overlay">
+    <div class="game-over-content">
+      <h2>Game Over!</h2>
+      <p id="game-over-reason"></p>
+      <div class="final-score">
+        Score: <span id="final-score"></span>
+      </div>
+      <button id="play-again">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    class Game {
+      constructor() {
+        this.grid = [];
+        this.playerPos = { x: 5, y: 5 };
+        this.score = 0;
+        this.isGameOver = false;
+        this.gameOverReason = '';
+        this.history = [];
+        this.moveHistory = [];
+        this.highScore = this.loadHighScore();
+        this.startingPos = { x: 5, y: 5 };
+        this.isFirstMove = true;
+      }
+
+      init() {
+        this.generateGrid();
+        this.playerPos = { x: 5, y: 5 };
+        this.startingPos = { x: 5, y: 5 };
+        this.isFirstMove = true;
+        this.score = 0;
+        this.isGameOver = false;
+        this.gameOverReason = '';
+        this.history = [];
+        this.moveHistory = [];
+        this.render();
+      }
+
+      generateGrid() {
+        this.grid = [];
+        for (let y = 0; y < 11; y++) {
+          this.grid[y] = [];
+          for (let x = 0; x < 11; x++) {
+            this.grid[y][x] = {
+              value: Math.floor(Math.random() * 5) + 1,
+              isWall: false
+            };
+          }
+        }
+        // Set center cell to 0
+        this.grid[5][5].value = 0;
+      }
+
+      move(direction) {
+        if (this.isGameOver) return;
+
+        // Save state before move (for undo)
+        this.saveState();
+
+        // Calculate move
+        const moveResult = this.calculateMove(direction);
+
+        if (!moveResult.valid) {
+          this.isGameOver = true;
+          this.gameOverReason = moveResult.reason;
+          this.render();
+          return;
+        }
+
+        // Execute move
+        this.executeMove(moveResult.path, direction, moveResult.steps);
+        this.render();
+      }
+
+      calculateMove(direction) {
+        const { x, y } = this.playerPos;
+
+        // Calculate direction vector
+        const vectors = {
+          up: { dx: 0, dy: -1 },
+          down: { dx: 0, dy: 1 },
+          left: { dx: -1, dy: 0 },
+          right: { dx: 1, dy: 0 }
+        };
+
+        const { dx, dy } = vectors[direction];
+
+        // Check the immediate neighbor (target cell) in the chosen direction
+        const targetX = x + dx;
+        const targetY = y + dy;
+
+        // Check if target is out of bounds
+        if (targetX < 0 || targetX > 10 || targetY < 0 || targetY > 10) {
+          return { valid: false, reason: 'out of bounds' };
+        }
+
+        // Check if target is a wall
+        if (this.grid[targetY][targetX].isWall) {
+          return { valid: false, reason: 'wall collision' };
+        }
+
+        // Get the number of steps from the target cell
+        const steps = this.grid[targetY][targetX].value;
+        const path = [];
+
+        // Trace path - move 'steps' spaces in the chosen direction
+        for (let i = 1; i <= steps; i++) {
+          const newX = x + (dx * i);
+          const newY = y + (dy * i);
+
+          // Check bounds
+          if (newX < 0 || newX > 10 || newY < 0 || newY > 10) {
+            return { valid: false, reason: 'out of bounds' };
+          }
+
+          // Check wall collision
+          if (this.grid[newY][newX].isWall) {
+            return { valid: false, reason: 'wall collision' };
+          }
+
+          path.push({ x: newX, y: newY });
+        }
+
+        return { valid: true, path, steps };
+      }
+
+      executeMove(path, direction, steps) {
+        let scoreGain = 0;
+
+        // Mark all traversed cells as walls and sum their values
+        path.forEach(pos => {
+          const cell = this.grid[pos.y][pos.x];
+          scoreGain += cell.value;
+          cell.isWall = true;
+        });
+
+        // If this is the first move, mark the starting position (center) as a wall
+        if (this.isFirstMove) {
+          this.grid[this.startingPos.y][this.startingPos.x].isWall = true;
+          this.isFirstMove = false;
+        }
+
+        // Update player position (last position in path)
+        const finalPos = path[path.length - 1];
+        this.playerPos = { x: finalPos.x, y: finalPos.y };
+
+        // Check for corner bonus
+        let cornerBonus = 0;
+        const isCorner = (this.playerPos.x === 0 && this.playerPos.y === 0) ||
+                         (this.playerPos.x === 10 && this.playerPos.y === 0) ||
+                         (this.playerPos.x === 0 && this.playerPos.y === 10) ||
+                         (this.playerPos.x === 10 && this.playerPos.y === 10);
+
+        if (isCorner) {
+          cornerBonus = 25;
+        }
+
+        // Update score
+        this.score += scoreGain + cornerBonus;
+
+        // Update high score if needed
+        if (this.score > this.highScore) {
+          this.highScore = this.score;
+          this.saveHighScore();
+        }
+
+        // Record move
+        const directionSymbols = {
+          up: '↑',
+          down: '↓',
+          left: '←',
+          right: '→'
+        };
+        const bonusText = cornerBonus > 0 ? ` +${cornerBonus} corner bonus` : '';
+        this.moveHistory.push(
+          `${directionSymbols[direction]} ${steps} spaces (+${scoreGain}${bonusText})`
+        );
+      }
+
+      saveState() {
+        const snapshot = {
+          grid: this.deepCopyGrid(this.grid),
+          playerPos: { ...this.playerPos },
+          score: this.score,
+          moveHistory: [...this.moveHistory],
+          isFirstMove: this.isFirstMove
+        };
+        this.history.push(snapshot);
+      }
+
+      undo() {
+        if (this.history.length === 0) return;
+
+        const previousState = this.history.pop();
+        this.grid = previousState.grid;
+        this.playerPos = previousState.playerPos;
+        this.score = previousState.score;
+        this.moveHistory = previousState.moveHistory;
+        this.isFirstMove = previousState.isFirstMove;
+        this.isGameOver = false;
+        this.gameOverReason = '';
+
+        // Hide game over overlay if visible
+        document.getElementById('game-over-overlay').classList.remove('visible');
+
+        this.render();
+      }
+
+      deepCopyGrid(grid) {
+        return grid.map(row =>
+          row.map(cell => ({ ...cell }))
+        );
+      }
+
+      render() {
+        this.renderGrid();
+        this.renderScore();
+        this.renderMoveHistory();
+        this.updateUndoButton();
+
+        if (this.isGameOver) {
+          this.renderGameOver();
+        }
+      }
+
+      renderGrid() {
+        const gridElement = document.getElementById('grid');
+        gridElement.innerHTML = '';
+
+        for (let y = 0; y < 11; y++) {
+          for (let x = 0; x < 11; x++) {
+            const cell = this.grid[y][x];
+            const cellDiv = document.createElement('div');
+            cellDiv.className = 'cell';
+
+            if (cell.isWall) {
+              cellDiv.classList.add('wall');
+              cellDiv.textContent = 'X';
+            } else {
+              cellDiv.classList.add(`value-${cell.value}`);
+              cellDiv.textContent = cell.value;
+            }
+
+            // Mark corner cells
+            const isCorner = (x === 0 && y === 0) ||
+                             (x === 10 && y === 0) ||
+                             (x === 0 && y === 10) ||
+                             (x === 10 && y === 10);
+            if (isCorner) {
+              cellDiv.classList.add('corner');
+            }
+
+            // Add player indicator
+            if (x === this.playerPos.x && y === this.playerPos.y) {
+              const player = document.createElement('div');
+              player.className = 'player';
+              cellDiv.appendChild(player);
+            }
+
+            gridElement.appendChild(cellDiv);
+          }
+        }
+      }
+
+      renderScore() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('high-score').textContent = this.highScore;
+      }
+
+      renderMoveHistory() {
+        const listElement = document.getElementById('move-list');
+        listElement.innerHTML = '';
+
+        this.moveHistory.forEach((move, index) => {
+          const item = document.createElement('div');
+          item.className = 'move-item';
+          item.textContent = `${index + 1}. ${move}`;
+          listElement.appendChild(item);
+        });
+
+        // Auto-scroll to bottom
+        listElement.parentElement.scrollTop = listElement.parentElement.scrollHeight;
+      }
+
+      renderGameOver() {
+        const overlay = document.getElementById('game-over-overlay');
+        const reasonElement = document.getElementById('game-over-reason');
+        const finalScoreElement = document.getElementById('final-score');
+
+        const reasons = {
+          'wall collision': 'You hit a wall!',
+          'out of bounds': 'You moved off the grid!'
+        };
+
+        reasonElement.textContent = reasons[this.gameOverReason];
+        finalScoreElement.textContent = this.score;
+        overlay.classList.add('visible');
+      }
+
+      updateUndoButton() {
+        const undoButton = document.getElementById('undo');
+        undoButton.disabled = this.history.length === 0;
+      }
+
+      loadHighScore() {
+        try {
+          const saved = localStorage.getItem('greed-high-score');
+          return saved ? parseInt(saved, 10) : 0;
+        } catch (e) {
+          console.warn('localStorage not available:', e);
+          return 0;
+        }
+      }
+
+      saveHighScore() {
+        try {
+          localStorage.setItem('greed-high-score', this.highScore.toString());
+        } catch (e) {
+          console.warn('localStorage not available:', e);
+        }
+      }
+    }
+
+    // Initialize game
+    const game = new Game();
+    game.init();
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      const keyMap = {
+        'ArrowUp': 'up',
+        'ArrowDown': 'down',
+        'ArrowLeft': 'left',
+        'ArrowRight': 'right',
+        'w': 'up',
+        'W': 'up',
+        's': 'down',
+        'S': 'down',
+        'a': 'left',
+        'A': 'left',
+        'd': 'right',
+        'D': 'right'
+      };
+
+      const direction = keyMap[e.key];
+      if (direction && !game.isGameOver) {
+        e.preventDefault();
+        game.move(direction);
+      }
+
+      // Undo with 'u' or 'z'
+      if ((e.key === 'u' || e.key === 'U' || e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        game.undo();
+      }
+    });
+
+    // Button controls
+    document.querySelectorAll('.arrow-controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const direction = btn.dataset.direction;
+        game.move(direction);
+      });
+    });
+
+    document.getElementById('restart').addEventListener('click', () => {
+      document.getElementById('game-over-overlay').classList.remove('visible');
+      game.init();
+    });
+
+    document.getElementById('undo').addEventListener('click', () => {
+      game.undo();
+    });
+
+    document.getElementById('play-again').addEventListener('click', () => {
+      document.getElementById('game-over-overlay').classList.remove('visible');
+      game.init();
+    });
+  </script>
+</body>
+</html>
