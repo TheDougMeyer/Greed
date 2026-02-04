@@ -286,32 +286,6 @@
       font-size: 14px;
     }
 
-    .enclosure-bonus-animation {
-      position: absolute;
-      font-size: 32px;
-      font-weight: bold;
-      color: #ffd700;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
-      pointer-events: none;
-      animation: bonusFloat 1.5s ease-out;
-      z-index: 100;
-      transform: translate(-50%, -50%);
-    }
-
-    @keyframes bonusFloat {
-      0% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-      }
-      50% {
-        transform: translate(-50%, -80px) scale(1.2);
-      }
-      100% {
-        opacity: 0;
-        transform: translate(-50%, -120px) scale(1);
-      }
-    }
-
     @media (max-width: 768px) {
       body {
         padding: 0;
@@ -688,95 +662,6 @@
         this.moveHistory.push(
           `${directionSymbols[direction]} ${steps} spaces (+${scoreGain}${bonusText})`
         );
-
-        // Check for enclosed areas
-        const enclosedCells = this.checkEnclosedAreas();
-
-        if (enclosedCells.length > 0) {
-          // Check if player is trapped
-          const playerTrapped = enclosedCells.some(
-            cell => cell.x === this.playerPos.x && cell.y === this.playerPos.y
-          );
-
-          if (playerTrapped) {
-            // Player trapped themselves - game over
-            this.isGameOver = true;
-            this.gameOverReason = 'trapped';
-            return; // Don't collect points, just end game
-          }
-
-          // Calculate bonus from enclosed area
-          let enclosureBonus = 0;
-          enclosedCells.forEach(pos => {
-            enclosureBonus += this.grid[pos.y][pos.x].value;
-            this.grid[pos.y][pos.x].isWall = true; // Mark as wall
-          });
-
-          // Update score with bonus
-          this.score += enclosureBonus;
-
-          // Update high score if needed
-          if (this.score > this.highScore) {
-            this.highScore = this.score;
-            this.saveHighScore();
-          }
-
-          // Show animation
-          if (enclosureBonus > 0) {
-            this.showEnclosureBonus(enclosureBonus);
-          }
-
-          // Update move history
-          this.moveHistory[this.moveHistory.length - 1] +=
-            ` +${enclosureBonus} enclosure bonus!`;
-        }
-      }
-
-      checkEnclosedAreas() {
-        const checked = Array(11).fill(null).map(() => Array(11).fill(false));
-        const enclosedCells = [];
-
-        // Check each non-wall cell
-        for (let y = 0; y < 11; y++) {
-          for (let x = 0; x < 11; x++) {
-            if (!this.grid[y][x].isWall && !checked[y][x]) {
-              const region = [];
-              const canEscape = this.floodFill(x, y, checked, region);
-
-              if (!canEscape) {
-                // Region is enclosed
-                enclosedCells.push(...region);
-              }
-            }
-          }
-        }
-
-        return enclosedCells;
-      }
-
-      floodFill(x, y, checked, region) {
-        // Base cases: out of bounds means can escape
-        if (x < 0 || x > 10 || y < 0 || y > 10) {
-          return true; // Can escape!
-        }
-
-        // Already checked or wall
-        if (checked[y][x] || this.grid[y][x].isWall) {
-          return false;
-        }
-
-        // Mark as checked and add to region
-        checked[y][x] = true;
-        region.push({ x, y });
-
-        // Check all 4 directions (orthogonal only)
-        const up = this.floodFill(x, y - 1, checked, region);
-        const down = this.floodFill(x, y + 1, checked, region);
-        const left = this.floodFill(x - 1, y, checked, region);
-        const right = this.floodFill(x + 1, y, checked, region);
-
-        // If ANY direction can escape, whole region can escape
-        return up || down || left || right;
       }
 
       saveState() {
@@ -901,36 +786,12 @@
 
         const reasons = {
           'wall collision': 'You hit a wall!',
-          'out of bounds': 'You moved off the grid!',
-          'trapped': 'You trapped yourself in an enclosed area!'
+          'out of bounds': 'You moved off the grid!'
         };
 
         reasonElement.textContent = reasons[this.gameOverReason];
         finalScoreElement.textContent = this.score;
         overlay.classList.add('visible');
-      }
-
-      showEnclosureBonus(bonus) {
-        // Create floating bonus text element
-        const bonusEl = document.createElement('div');
-        bonusEl.className = 'enclosure-bonus-animation';
-        bonusEl.textContent = `+${bonus}`;
-
-        // Position at player location
-        const gridElement = document.getElementById('grid');
-        const gridRect = gridElement.getBoundingClientRect();
-        const cellWidth = gridRect.width / 11;
-        const cellHeight = gridRect.height / 11;
-
-        bonusEl.style.left = `${this.playerPos.x * cellWidth + cellWidth / 2}px`;
-        bonusEl.style.top = `${this.playerPos.y * cellHeight + cellHeight / 2}px`;
-
-        gridElement.appendChild(bonusEl);
-
-        // Remove after animation completes
-        setTimeout(() => {
-          bonusEl.remove();
-        }, 1500);
       }
 
       updateUndoButton() {
