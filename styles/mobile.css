@@ -1,0 +1,217 @@
+/* Mobile responsive styles */
+
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+  }
+
+  .container {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    width: 100vw;
+    height: 100vh;
+    height: -webkit-fill-available;
+    gap: 0;
+    padding: 0;
+  }
+
+  .grid {
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    grid-template-rows: repeat(11, minmax(0, 1fr));
+    width: min(calc(100vw - 10px), calc(100vh - 180px));
+    height: min(calc(100vw - 10px), calc(100vh - 180px));
+    max-width: 500px;
+    max-height: 500px;
+    touch-action: none;
+  }
+
+  .cell {
+    font-size: clamp(12px, 3vw, 18px);
+  }
+
+  .player {
+    width: 70%;
+    height: 70%;
+    max-width: 35px;
+    max-height: 35px;
+    border: 2px solid #000;
+  }
+
+  .controls {
+    width: 100%;
+    display: contents;
+  }
+
+  /* Compact header with scores */
+  .score-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 15px;
+    border-radius: 0;
+    background: #2a2a2a;
+    margin: 0;
+    gap: 10px;
+  }
+
+  .score-column, .timer-column {
+    flex: 0 1 auto;
+  }
+
+  .score-label {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .score-display {
+    font-size: 20px;
+    margin: 0;
+  }
+
+  .timer-display {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .high-score {
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .how-to-play-wrapper {
+    display: none;
+  }
+
+  /* Bottom button bar */
+  .button-group {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 15px;
+    background: #2a2a2a;
+    border-radius: 0;
+  }
+
+  .button-group button {
+    flex: 1;
+    padding: 12px;
+    min-height: 44px;
+  }
+
+  /* Hide desktop-only elements on mobile */
+  .arrow-controls {
+    display: none;
+  }
+
+  .move-history {
+    display: none;
+  }
+
+  .instructions {
+    display: none;
+  }
+
+  /* Welcome screen mobile */
+  .welcome-content {
+    padding: 20px;
+    max-width: 90vw;
+  }
+
+  .welcome-content h1 {
+    font-size: 36px;
+  }
+
+  .mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-card {
+    padding: 15px;
+  }
+
+  /* Countdown mobile sizing */
+  .countdown-number {
+    font-size: 80px;
+  }
+
+  /* Timer options mobile sizing */
+  .timer-options {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .timer-option {
+    padding: 8px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+
+  /* Inventory mobile */
+  .inventory-panel {
+    padding: 10px 12px;
+  }
+
+  .inventory-item {
+    width: 50px;
+    height: 50px;
+  }
+
+  .inventory-icon {
+    width: 25px;
+    height: 25px;
+  }
+
+  .inventory-count {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+  }
+
+  /* Placement UI mobile */
+  .placement-ui {
+    bottom: 20px;
+    padding: 12px 16px;
+    max-width: 90%;
+  }
+
+  .placement-instructions {
+    font-size: 13px;
+  }
+
+  .placement-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .place-button,
+  .cancel-button {
+    width: 100%;
+  }
+
+  /* Powerup icon mobile */
+  .powerup-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Placed bridge icon mobile */
+  .placed-bridge-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Placed teleport icon mobile */
+  .placed-teleport-icon {
+    width: 28px;
+    height: 28px;
+  }
+}

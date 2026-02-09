@@ -1,0 +1,222 @@
+/* Score, controls, buttons, move history */
+
+.controls {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.score-section {
+  background: #2a2a2a;
+  padding: 20px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.score-column {
+  flex: 1;
+  text-align: center;
+}
+
+.timer-column {
+  flex: 1;
+  text-align: center;
+}
+
+.timer-column.timer-warning .timer-display {
+  color: #ff6b9d;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.score-display {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.timer-display {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: #ffb86c;
+  font-weight: bold;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.high-score {
+  font-size: 18px;
+  color: #ffd700;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+button {
+  padding: 15px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  background: #4ecdc4;
+  color: #000;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #45b7af;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  color: #888;
+}
+
+.arrow-controls {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  gap: 5px;
+  margin: 20px 0;
+}
+
+.arrow-up { grid-area: up; }
+.arrow-down { grid-area: down; }
+.arrow-left { grid-area: left; }
+.arrow-right { grid-area: right; }
+
+.arrow-controls button {
+  font-size: 24px;
+  padding: 10px;
+}
+
+/* How to Play Button */
+.how-to-play-wrapper {
+  margin-top: 15px;
+  width: 100%;
+}
+
+.how-to-play-btn {
+  background: transparent;
+  border: 1px solid #4ecdc4;
+  color: #4ecdc4;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  font-weight: normal;
+}
+
+.how-to-play-btn:hover {
+  background: rgba(78, 205, 196, 0.1);
+  border-color: #45b7b8;
+  color: #45b7b8;
+  transform: translateY(-1px);
+}
+
+.how-to-play-btn:active {
+  transform: translateY(0);
+}
+
+/* Inventory Panel */
+.inventory-panel {
+  background: #2a2a2a;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.inventory-label {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.inventory-items {
+  display: flex;
+  gap: 8px;
+}
+
+.inventory-item {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  padding: 8px;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inventory-item:hover:not(:disabled) {
+  border-color: #4ecdc4;
+  background: #222;
+  transform: scale(1.05);
+}
+
+.inventory-item:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.inventory-item.active {
+  border-color: #ffd700;
+  background: #2a2200;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.inventory-icon {
+  width: 30px;
+  height: 30px;
+  filter: brightness(0) invert(1);
+}
+
+.inventory-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #4ecdc4;
+  color: #000;
+  font-size: 11px;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

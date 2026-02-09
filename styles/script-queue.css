@@ -1,0 +1,322 @@
+/**
+ * Script Queue Panel - Pre-programmed Mode
+ * Left sidebar layout with Run It button at bottom
+ */
+
+/* Game Board Grid Layout */
+.game-board {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 15px;
+  align-items: start;
+}
+
+/* Queue panel on left - Minimalist narrow design */
+.script-queue-panel {
+  grid-column: 1;
+  grid-row: 1;
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Grid on right */
+#grid {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/* Run It container at bottom, spanning full width */
+.run-it-container {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Vertical list layout - No scrolling, show all 20 items */
+.queue-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 660px;
+}
+
+/* Empty state */
+.queue-empty {
+  color: #666;
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+  padding: 20px 10px;
+}
+
+/* Individual queue items - Compact and minimal */
+.queue-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.move-number {
+  font-size: 11px;
+  color: #888;
+  min-width: 20px;
+  text-align: right;
+  font-weight: normal;
+}
+
+.move-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Current move highlighting - Subtle */
+.queue-item.current {
+  background: rgba(78, 205, 196, 0.2);
+  border-left: 2px solid #4ecdc4;
+  padding-left: 4px;
+  opacity: 1;
+  animation: currentPulse 1.5s infinite;
+}
+
+.queue-item.current .move-number {
+  color: #4ecdc4;
+  font-weight: bold;
+}
+
+@keyframes currentPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.queue-item.current .move-arrow {
+  animation: arrowBounce 0.8s infinite;
+}
+
+@keyframes arrowBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Executed moves */
+.queue-item.executed {
+  opacity: 0.3;
+  text-decoration: line-through;
+}
+
+/* Scripting controls - 3-button layout below grid */
+.scripting-controls {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 740px;
+}
+
+.queue-btn {
+  flex: 1;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: bold;
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.queue-btn:hover {
+  background: #ff5252;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.queue-btn:active {
+  transform: translateY(0);
+}
+
+.scripting-controls .run-it-btn {
+  flex: 2;
+}
+
+/* Run It Button - Updated for 3-button layout */
+.run-it-btn {
+  padding: 14px 40px;
+  font-size: 18px;
+  font-weight: bold;
+  background: #4ecdc4;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.run-it-btn:disabled {
+  background: #555;
+  color: #888;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.run-it-btn:not(:disabled):hover {
+  background: #45b7b8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(78, 205, 196, 0.4);
+}
+
+.run-it-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Playback controls */
+.playback-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 740px;
+}
+
+.playback-btn {
+  background: #4ecdc4;
+  color: #1a1a1a;
+  border: none;
+  padding: 14px 30px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.playback-btn:hover {
+  background: #45b7b8;
+  transform: translateY(-2px);
+}
+
+.playback-btn:active {
+  transform: translateY(0);
+}
+
+.playback-skip {
+  display: flex;
+  gap: 8px;
+}
+
+.skip-btn {
+  background: #555;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.skip-btn:hover:not(:disabled) {
+  background: #666;
+  transform: translateY(-1px);
+}
+
+.skip-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.skip-btn:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  /* Stack vertically on mobile */
+  .game-board {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 10px;
+  }
+
+  .script-queue-panel {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .queue-table {
+    flex-direction: row;
+    flex-wrap: wrap;
+    height: auto;
+    gap: 8px;
+  }
+
+  .queue-item {
+    flex-direction: column;
+    padding: 6px;
+    gap: 2px;
+    min-width: 40px;
+  }
+
+  #grid {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .run-it-container {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .scripting-controls {
+    flex-direction: column;
+    max-width: 100%;
+  }
+
+  .queue-btn,
+  .run-it-btn {
+    width: 100%;
+    flex: 1;
+  }
+
+  .playback-controls {
+    flex-direction: column;
+    max-width: 100%;
+  }
+
+  .playback-btn {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .playback-skip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .skip-btn {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+}
