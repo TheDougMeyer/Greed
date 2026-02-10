@@ -11,6 +11,35 @@ export default class GameRenderer {
   }
 
   /**
+   * Get placement instructions text based on powerup type
+   * @private
+   */
+  getPlacementInstructions(placementType) {
+    const instructions = {
+      bridge: 'Select a wall to convert to a bridge',
+      teleport: 'Select a cell to teleport to'
+    };
+    return instructions[placementType] || `Select a cell for ${placementType}`;
+  }
+
+  /**
+   * Check if a cell is selectable for the current placement type
+   * @private
+   */
+  isCellSelectableForPlacement(cell, x, y, placementType, playerPos) {
+    if (x === playerPos.x && y === playerPos.y) return false;
+
+    switch (placementType) {
+      case 'bridge':
+        return cell.isWall;
+      case 'teleport':
+        return !cell.isWall;
+      default:
+        return false;
+    }
+  }
+
+  /**
    * Cache all DOM element references upfront for performance
    */
   cacheElements() {
@@ -48,6 +77,9 @@ export default class GameRenderer {
       gameOverReason: document.getElementById('game-over-reason'),
       finalScore: document.getElementById('final-score'),
 
+      // Viewing mode UI
+      viewingModeUI: document.getElementById('viewing-mode-ui'),
+
       // Pre-programmed mode UI
       scriptQueueTable: document.getElementById('script-queue-table'),
       scriptingControls: document.getElementById('scripting-controls'),
@@ -63,7 +95,7 @@ export default class GameRenderer {
   /**
    * Render the game grid with cells, player, powerups, and placement mode
    * @param {Object} data - Grid data { grid, playerPos, isPlacementMode, placementType, selectedCellPos }
-   * @param {Object} callbacks - Event callbacks { onWallClick, onCellClick }
+   * @param {Object} callbacks - Event callbacks { onCellClick }
    */
   renderGrid(data, callbacks = {}) {
     const { grid, playerPos, isPlacementMode, placementType, selectedCellPos } = data;
@@ -148,8 +180,8 @@ export default class GameRenderer {
       }
     }
 
-    // Handle placement mode
-    if (isPlacementMode && placementType === 'bridge') {
+    // Handle placement mode (unified for all powerup types)
+    if (isPlacementMode && placementType) {
       // Show placement UI
       if (this.elements.placementUI) {
         this.elements.placementUI.style.display = 'flex';
@@ -157,67 +189,32 @@ export default class GameRenderer {
 
       // Update instruction text
       if (this.elements.placementInstructions) {
-        this.elements.placementInstructions.textContent = 'Select a wall to convert to a bridge';
+        this.elements.placementInstructions.textContent = this.getPlacementInstructions(placementType);
       }
 
-      // Update place button state
+      // Update place buttons state based on type
       if (this.elements.placeBridgeBtn) {
         this.elements.placeBridgeBtn.disabled = !selectedCellPos;
-        this.elements.placeBridgeBtn.style.display = 'block';
-      }
+        this.elements.placeBridgeBtn.style.display = placementType === 'bridge' ? 'block' : 'none';
 
-      // Hide teleport button
-      if (this.elements.placeTeleportBtn) {
-        this.elements.placeTeleportBtn.style.display = 'none';
-      }
-
-      // Add wall highlighting and click handlers
-      for (let y = 0; y < 11; y++) {
-        for (let x = 0; x < 11; x++) {
-          const cellIndex = y * 11 + x;
-          const cellDiv = gridElement.children[cellIndex];
-          const cell = grid[y][x];
-
-          if (cell.isWall) {
-            cellDiv.classList.add('wall-selectable');
-
-            // Highlight selected wall
-            if (selectedCellPos &&
-                selectedCellPos.x === x &&
-                selectedCellPos.y === y) {
-              cellDiv.classList.add('wall-selected');
-            }
-
-            // Make walls clickable
-            cellDiv.style.cursor = 'pointer';
-            if (callbacks.onWallClick) {
-              cellDiv.addEventListener('click', () => {
-                callbacks.onWallClick(x, y);
-              });
-            }
-          }
+        // Add enter-hint class when a cell is selected
+        if (selectedCellPos && placementType === 'bridge') {
+          this.elements.placeBridgeBtn.classList.add('enter-hint');
+        } else {
+          this.elements.placeBridgeBtn.classList.remove('enter-hint');
         }
       }
-    } else if (isPlacementMode && placementType === 'teleport') {
-      // Show placement UI
-      if (this.elements.placementUI) {
-        this.elements.placementUI.style.display = 'flex';
-      }
 
-      // Update instruction text
-      if (this.elements.placementInstructions) {
-        this.elements.placementInstructions.textContent = 'Select a cell to teleport to';
-      }
-
-      // Update place button state
       if (this.elements.placeTeleportBtn) {
         this.elements.placeTeleportBtn.disabled = !selectedCellPos;
-        this.elements.placeTeleportBtn.style.display = 'block';
-      }
+        this.elements.placeTeleportBtn.style.display = placementType === 'teleport' ? 'block' : 'none';
 
-      // Hide bridge button
-      if (this.elements.placeBridgeBtn) {
-        this.elements.placeBridgeBtn.style.display = 'none';
+        // Add enter-hint class when a cell is selected
+        if (selectedCellPos && placementType === 'teleport') {
+          this.elements.placeTeleportBtn.classList.add('enter-hint');
+        } else {
+          this.elements.placeTeleportBtn.classList.remove('enter-hint');
+        }
       }
 
       // Add cell highlighting and click handlers
@@ -227,17 +224,27 @@ export default class GameRenderer {
           const cellDiv = gridElement.children[cellIndex];
           const cell = grid[y][x];
 
-          // All non-wall cells (except player position) are selectable
-          if (!cell.isWall && !(x === playerPos.x && y === playerPos.y)) {
-            cellDiv.classList.add('cell-selectable');
+          // Check if cell is selectable for current placement type
+          if (this.isCellSelectableForPlacement(cell, x, y, placementType, playerPos)) {
+            // Add appropriate CSS class based on type
+            if (placementType === 'bridge') {
+              cellDiv.classList.add('wall-selectable');
+            } else if (placementType === 'teleport') {
+              cellDiv.classList.add('cell-selectable');
+            }
 
             // Highlight selected cell
             if (selectedCellPos &&
                 selectedCellPos.x === x &&
                 selectedCellPos.y === y) {
-              cellDiv.classList.add('cell-selected');
+              if (placementType === 'bridge') {
+                cellDiv.classList.add('wall-selected');
+              } else {
+                cellDiv.classList.add('cell-selected');
+              }
             }
 
+            // Make cell clickable
             cellDiv.style.cursor = 'pointer';
             if (callbacks.onCellClick) {
               cellDiv.addEventListener('click', () => {
@@ -296,6 +303,15 @@ export default class GameRenderer {
    */
   hideGameOverOverlay() {
     this.elements.gameOverOverlay.classList.remove('visible');
+  }
+
+  /**
+   * Show/hide viewing mode UI
+   * @param {boolean} isViewing - Whether in viewing mode
+   */
+  renderViewingModeUI(isViewing) {
+    if (!this.elements.viewingModeUI) return;
+    this.elements.viewingModeUI.style.display = isViewing ? 'block' : 'none';
   }
 
   /**

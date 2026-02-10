@@ -182,6 +182,21 @@
   transform: translateY(0);
 }
 
+/* Enter key hint - glowing outline */
+.enter-hint {
+  position: relative;
+  animation: enterGlow 2s ease-in-out infinite;
+}
+
+@keyframes enterGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.3);
+  }
+}
+
 /* Timer option buttons */
 
 .timer-options {
@@ -505,6 +520,10 @@
   cursor: not-allowed;
 }
 
+.place-button:not(:disabled).enter-hint {
+  animation: enterGlow 2s ease-in-out infinite;
+}
+
 .cancel-button {
   padding: 10px 20px;
   font-size: 14px;
@@ -520,4 +539,36 @@
 .cancel-button:hover {
   background: #ff5252;
   transform: scale(1.05);
+}
+
+/* Viewing Mode UI */
+.viewing-mode-ui {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+
+.back-to-results-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #4ecdc4;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(78, 205, 196, 0.4);
+}
+
+.back-to-results-btn:hover {
+  background: #45b7af;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(78, 205, 196, 0.5);
+}
+
+.back-to-results-btn:active {
+  transform: translateY(0);
 }

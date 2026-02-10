@@ -89,6 +89,13 @@ button:active:not(:disabled) {
   transform: translateY(0);
 }
 
+/* Keyboard visual feedback - matches hover effect */
+button.key-active {
+  background: #45b7af;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
 button:disabled {
   background: #555;
   cursor: not-allowed;

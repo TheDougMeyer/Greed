@@ -3,33 +3,38 @@
  */
 
 import Game from './core/Game.js';
+import InputHandler from './input/InputHandler.js';
 import { GAME_MODES } from './config/modes.js';
 import { sleep } from './utils/helpers.js';
 
 // Initialize game
 const game = new Game();
 
+// Initialize input handling
+const inputHandler = new InputHandler(game);
+inputHandler.init();
+
 // Helper function to initialize game based on mode
-async function initializeGame(modeConfig, settings) {
+async function initializeGame(modeConfig, settings, extraOptions = {}) {
   if (modeConfig.hasTimer && !modeConfig.isProgrammed) {
     // Timer mode only
-    game.init(modeConfig, settings, { skipTimerStart: true });
+    game.init(modeConfig, settings, { skipTimerStart: true, ...extraOptions });
     await showCountdown(3);
     game.startTimer();
     game.enableControls();
   } else if (modeConfig.isProgrammed && !modeConfig.hasTimer) {
     // Pre-programmed mode only
-    game.init(modeConfig, settings);
+    game.init(modeConfig, settings, extraOptions);
     // Controls already enabled for scripting by init()
   } else if (modeConfig.isProgrammed && modeConfig.hasTimer) {
     // Combined mode
-    game.init(modeConfig, settings, { skipTimerStart: true });
+    game.init(modeConfig, settings, { skipTimerStart: true, ...extraOptions });
     await showCountdown(3);
     game.startTimer();  // Timer runs during scripting
     // Controls already enabled for scripting
   } else {
     // Classic mode
-    game.init(modeConfig, settings);
+    game.init(modeConfig, settings, extraOptions);
     game.enableControls();
   }
 }
@@ -73,6 +78,11 @@ document.querySelectorAll('.timer-option').forEach(btn => {
 
     // Add to clicked button
     btn.classList.add('selected');
+
+    // Auto-select the parent mode card
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    modeCard.classList.add('selected');
+    selectedMode = modeCard.dataset.mode;
   });
 });
 
@@ -96,8 +106,8 @@ async function showCountdown(seconds) {
   overlay.classList.remove('visible');
 }
 
-// Start game button
-document.getElementById('start-game').addEventListener('click', async () => {
+// Start game function (shared by button click and Enter key)
+async function startGame() {
   // Get settings
   // Capture individual powerup settings
   gameSettings.bridgeEnabled = document.getElementById('bridge-enabled').checked;
@@ -130,55 +140,21 @@ document.getElementById('start-game').addEventListener('click', async () => {
 
   // Initialize game
   await initializeGame(modeConfig, gameSettings);
-});
+}
 
-// Keyboard controls
+// Start game button
+document.getElementById('start-game').addEventListener('click', startGame);
+
+// Enter key on welcome screen
 document.addEventListener('keydown', (e) => {
-  const keyMap = {
-    'ArrowUp': 'up',
-    'ArrowDown': 'down',
-    'ArrowLeft': 'left',
-    'ArrowRight': 'right',
-    'w': 'up',
-    'W': 'up',
-    's': 'down',
-    'S': 'down',
-    'a': 'left',
-    'A': 'left',
-    'd': 'right',
-    'D': 'right'
-  };
-
-  const direction = keyMap[e.key];
-
-  if (direction) {
+  const welcomeOverlay = document.getElementById('welcome-overlay');
+  if (e.key === 'Enter' && welcomeOverlay.classList.contains('visible')) {
     e.preventDefault();
-    game.routeDirectionInput(direction);
-  }
-
-  // Undo handling
-  if ((e.key === 'u' || e.key === 'U' || e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
-    e.preventDefault();
-
-    // Block undo during execution phase
-    if (game.isExecutionPhase) return;
-
-    if (game.isScriptingPhase) {
-      game.removeLastMoveFromScript();
-    } else {
-      game.undo();
-    }
+    startGame();
   }
 });
 
-// Button controls
-document.querySelectorAll('.arrow-controls button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const direction = btn.dataset.direction;
-    game.routeDirectionInput(direction);
-  });
-});
-
+// UI Flow buttons
 document.getElementById('restart').addEventListener('click', async () => {
   // Stop any running timer and execution
   game.stopTimer();
@@ -190,13 +166,6 @@ document.getElementById('restart').addEventListener('click', async () => {
 
   // Initialize game
   await initializeGame(modeConfig, gameSettings);
-});
-
-document.getElementById('undo').addEventListener('click', () => {
-  // Block during execution
-  if (game.isExecutionPhase) return;
-
-  game.undo();
 });
 
 document.getElementById('change-mode').addEventListener('click', () => {
@@ -246,42 +215,30 @@ document.getElementById('main-menu').addEventListener('click', () => {
   document.getElementById('welcome-overlay').classList.add('visible');
 });
 
-// Script queue controls
-document.getElementById('run-it-btn').addEventListener('click', () => {
-  game.startScriptExecution();
+// View Board button - enter viewing mode
+document.getElementById('view-board').addEventListener('click', () => {
+  game.enterViewingMode();
 });
 
-document.getElementById('clear-script-btn').addEventListener('click', () => {
-  game.clearScript();
+// Replay This Board button - replay the same grid
+document.getElementById('replay-board').addEventListener('click', async () => {
+  // Stop any running timer and execution
+  game.stopTimer();
+  game.isExecutionPhase = false;
+  game.isExecutionPaused = false;
+
+  document.getElementById('game-over-overlay').classList.remove('visible');
+  const modeConfig = GAME_MODES[selectedMode];
+
+  // Initialize game with the saved initial grid
+  await initializeGame(modeConfig, gameSettings, {
+    replayGrid: game.initialGrid
+  });
 });
 
-document.getElementById('undo-queue-btn').addEventListener('click', () => {
-  game.removeLastMoveFromScript();
-});
-
-// Playback controls
-document.getElementById('play-pause-btn').addEventListener('click', () => {
-  if (game.isExecutionPaused) {
-    game.resumeExecution();
-  } else {
-    game.pauseExecution();
-  }
-});
-
-document.getElementById('skip-to-start-btn').addEventListener('click', () => {
-  game.skipToBeginning();
-});
-
-document.getElementById('skip-back-btn').addEventListener('click', () => {
-  game.skipBackward();
-});
-
-document.getElementById('skip-forward-btn').addEventListener('click', () => {
-  game.skipForward();
-});
-
-document.getElementById('skip-to-end-btn').addEventListener('click', () => {
-  game.skipToEnd();
+// Back to Results button - exit viewing mode
+document.getElementById('back-to-results').addEventListener('click', () => {
+  game.exitViewingMode();
 });
 
 // Instructions overlay handlers
@@ -317,92 +274,4 @@ if (instructionsOverlay) {
       hideInstructions();
     }
   });
-}
-
-// Touch/swipe controls for mobile
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
-
-const gridElement = document.getElementById('grid');
-
-gridElement.addEventListener('touchstart', (e) => {
-  touchStartX = e.changedTouches[0].screenX;
-  touchStartY = e.changedTouches[0].screenY;
-}, { passive: false });
-
-gridElement.addEventListener('touchend', (e) => {
-  if (game.isGameOver || !game.controlsEnabled) return;
-
-  touchEndX = e.changedTouches[0].screenX;
-  touchEndY = e.changedTouches[0].screenY;
-
-  handleSwipe();
-  e.preventDefault(); // Prevent default touch behavior
-}, { passive: false });
-
-// Bridge inventory button
-document.getElementById('bridge-inventory-btn').addEventListener('click', () => {
-  if (game.isPlacementMode) {
-    game.cancelPlacementMode();
-  } else {
-    game.activateBridgePlacement();
-  }
-});
-
-// Place bridge button
-document.getElementById('place-bridge-btn').addEventListener('click', () => {
-  game.confirmBridgePlacement();
-});
-
-// Teleport inventory button
-document.getElementById('teleport-inventory-btn').addEventListener('click', () => {
-  if (game.isPlacementMode) {
-    game.cancelPlacementMode();
-  } else {
-    game.activateTeleportPlacement();
-  }
-});
-
-// Place teleport button (for future choice mode)
-document.getElementById('place-teleport-btn').addEventListener('click', () => {
-  game.confirmTeleportation();
-});
-
-// Cancel placement button
-document.getElementById('cancel-placement-btn').addEventListener('click', () => {
-  game.cancelPlacementMode();
-});
-
-// ESC key to cancel placement (add to existing keydown handler)
-const originalKeydownHandler = document.querySelector('script');  // Get reference
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && game.isPlacementMode) {
-    e.preventDefault();
-    game.cancelPlacementMode();
-  }
-});
-
-function handleSwipe() {
-  const deltaX = touchEndX - touchStartX;
-  const deltaY = touchEndY - touchStartY;
-  const minSwipeDistance = 30; // Minimum pixels for a valid swipe
-
-  // Check if swipe distance is sufficient
-  if (Math.abs(deltaX) < minSwipeDistance && Math.abs(deltaY) < minSwipeDistance) {
-    return; // Too short, ignore
-  }
-
-  // Determine direction
-  let direction;
-  if (Math.abs(deltaX) > Math.abs(deltaY)) {
-    // Horizontal swipe
-    direction = deltaX > 0 ? 'right' : 'left';
-  } else {
-    // Vertical swipe
-    direction = deltaY > 0 ? 'down' : 'up';
-  }
-
-  game.routeDirectionInput(direction);
 }

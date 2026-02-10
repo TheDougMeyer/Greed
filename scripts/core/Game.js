@@ -56,6 +56,12 @@ export default class Game {
     // Controls state
     this.controlsEnabled = false;
 
+    // Board viewing state
+    this.isViewingBoard = false;
+
+    // Initial grid for replay
+    this.initialGrid = null;
+
     // Pre-programmed mode state
     this.scriptQueue = [];
     this.isScriptingPhase = false;
@@ -78,7 +84,7 @@ export default class Game {
     this.powerupsEnabled = this.enabledPowerups.length > 0;
 
     // Reset game state
-    this.generateGrid();
+    this.generateGrid(options.replayGrid);
     this.playerPos = { x: 5, y: 5 };
     this.startingPos = { x: 5, y: 5 };
     this.isFirstMove = true;
@@ -87,6 +93,7 @@ export default class Game {
     this.gameOverReason = '';
     this.history = [];
     this.moveHistory = [];
+    this.isViewingBoard = false;
 
     // Load high score for this mode
     this.highScore = this.loadHighScore();
@@ -131,7 +138,14 @@ export default class Game {
     this.render();
   }
 
-  generateGrid() {
+  generateGrid(replayGrid = null) {
+    // If replaying, use the saved grid
+    if (replayGrid) {
+      this.grid = deepCopyGrid(replayGrid);
+      return;
+    }
+
+    // Otherwise generate a new grid
     this.grid = [];
 
     // Create array with exactly 24 of each number (1-5)
@@ -162,6 +176,9 @@ export default class Game {
 
     // Spawn powerups based on enabled types and mode compatibility
     this.spawnPowerups();
+
+    // Save the initial grid for replay functionality
+    this.initialGrid = deepCopyGrid(this.grid);
   }
 
   spawnPowerups() {
@@ -295,14 +312,19 @@ export default class Game {
       const cell = this.grid[pos.y][pos.x];
 
       // Collect powerup if present
-      if (cell.powerup === 'bridge') {
-        this.inventory.bridges++;
-        cell.powerup = undefined; // Remove from cell
-      }
+      if (cell.powerup) {
+        const powerupType = cell.powerup;
+        const config = POWERUP_TYPES[powerupType];
 
-      if (cell.powerup === 'teleport') {
-        this.inventory.teleports++;
-        cell.powerup = undefined; // Remove from cell
+        if (config && config.requiresInventory) {
+          const inventoryKey = `${powerupType}s`;
+          if (this.inventory.hasOwnProperty(inventoryKey)) {
+            this.inventory[inventoryKey]++;
+          } else {
+            console.warn(`Inventory key not found: ${inventoryKey}`);
+          }
+          cell.powerup = undefined;
+        }
       }
 
       scoreGain += cell.value;
@@ -704,10 +726,9 @@ export default class Game {
   }
 
   render() {
-    // Render grid with callbacks for placement mode
+    // Render grid with unified callback for placement mode
     this.renderer.renderGrid(this.getGridData(), {
-      onWallClick: (x, y) => this.selectWallForBridge(x, y),
-      onCellClick: (x, y) => this.selectCellForTeleport(x, y)
+      onCellClick: (x, y) => this.selectCellForPlacement(x, y)
     });
 
     // Render score and undo button
@@ -735,8 +756,8 @@ export default class Game {
       }
     }
 
-    // Render game over overlay
-    if (this.isGameOver) {
+    // Render game over overlay (unless viewing board)
+    if (this.isGameOver && !this.isViewingBoard) {
       // Cancel placement mode if active (game logic)
       if (this.isPlacementMode) {
         this.cancelPlacementMode();
@@ -748,24 +769,14 @@ export default class Game {
       // Render overlay (visual update)
       this.renderer.renderGameOver(this.gameOverReason, this.score);
     }
+
+    // Render viewing mode UI
+    this.renderer.renderViewingModeUI(this.isViewingBoard);
   }
 
   // Rendering methods moved to GameRenderer class
 
-  // Bridge placement methods
-  activateBridgePlacement() {
-    if (this.inventory.bridges <= 0 || this.isPlacementMode || this.isGameOver) {
-      return;
-    }
-
-    this.isPlacementMode = true;
-    this.placementType = 'bridge';
-    this.selectedCellPos = null;
-    this.disableControls();  // Prevent movement during placement
-
-    this.render();
-  }
-
+  // Powerup placement methods
   cancelPlacementMode() {
     if (!this.isPlacementMode) return;
 
@@ -781,20 +792,68 @@ export default class Game {
     this.render();
   }
 
-  selectWallForBridge(x, y) {
-    if (!this.isPlacementMode || this.placementType !== 'bridge') return;
+  /**
+   * Generic placement activation for any powerup type
+   * @param {string} type - Powerup type ('bridge', 'teleport', etc.)
+   */
+  activatePlacement(type) {
+    const config = POWERUP_TYPES[type];
+    if (!config) {
+      console.error(`Unknown powerup type: ${type}`);
+      return;
+    }
+
+    const inventoryCount = this.inventory[`${type}s`];
+    if (inventoryCount <= 0 || this.isPlacementMode || this.isGameOver) {
+      return;
+    }
+
+    // Handle random-mode powerups (bypass placement)
+    if (config.isRandom) {
+      const randomMethod = `executeRandom${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+      if (typeof this[randomMethod] === 'function') {
+        this[randomMethod]();
+      } else {
+        console.error(`Random execution method not found: ${randomMethod}`);
+      }
+      return;
+    }
+
+    // Enter placement mode
+    this.isPlacementMode = true;
+    this.placementType = type;
+    this.selectedCellPos = null;
+    this.disableControls();
+    this.render();
+  }
+
+  /**
+   * Validates if a cell can be selected for current placement type
+   * @private
+   */
+  validatePlacementSelection(cell, x, y) {
+    if (!this.isPlacementMode || !this.placementType) return false;
+
+    if (x === this.playerPos.x && y === this.playerPos.y) return false;
+
+    switch (this.placementType) {
+      case 'bridge':
+        return cell.isWall;
+      case 'teleport':
+        return !cell.isWall;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Generic cell selection for placement mode
+   */
+  selectCellForPlacement(x, y) {
+    if (!this.isPlacementMode) return;
 
     const cell = this.grid[y][x];
-
-    // Can only bridge walls
-    if (!cell.isWall) {
-      return;
-    }
-
-    // Cannot bridge player position (shouldn't be possible, but check)
-    if (x === this.playerPos.x && y === this.playerPos.y) {
-      return;
-    }
+    if (!this.validatePlacementSelection(cell, x, y)) return;
 
     this.selectedCellPos = {x, y};
     this.render();
@@ -925,45 +984,6 @@ export default class Game {
     this.render();
   }
 
-  activateTeleportPlacement() {
-    if (this.inventory.teleports <= 0 || this.isPlacementMode || this.isGameOver) {
-      return;
-    }
-
-    // Check if random mode
-    if (this.TELEPORT_RANDOM_MODE) {
-      this.executeRandomTeleport();
-      return;
-    }
-
-    // Choice mode (disabled for now)
-    this.isPlacementMode = true;
-    this.placementType = 'teleport';
-    this.selectedCellPos = null;
-    this.disableControls();
-
-    this.render();
-  }
-
-  selectCellForTeleport(x, y) {
-    if (!this.isPlacementMode || this.placementType !== 'teleport') return;
-
-    const cell = this.grid[y][x];
-
-    // Can only teleport to non-wall cells
-    if (cell.isWall) {
-      return;
-    }
-
-    // Cannot teleport to current position
-    if (x === this.playerPos.x && y === this.playerPos.y) {
-      return;
-    }
-
-    this.selectedCellPos = {x, y};
-    this.render();
-  }
-
   confirmTeleportation() {
     if (!this.selectedCellPos || !this.isPlacementMode) return;
 
@@ -1055,6 +1075,18 @@ export default class Game {
     this.gameOverReason = 'time expired';
     this.stopTimer();
     this.render();
+  }
+
+  // Board viewing methods
+  enterViewingMode() {
+    this.isViewingBoard = true;
+    this.renderer.hideGameOverOverlay();
+    this.render();
+  }
+
+  exitViewingMode() {
+    this.isViewingBoard = false;
+    this.renderer.renderGameOver(this.gameOverReason, this.score);
   }
 
   // Timer and pre-programmed mode rendering methods moved to GameRenderer class
