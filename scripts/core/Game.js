@@ -1018,7 +1018,7 @@ export default class Game {
     this.timerInterval = setInterval(() => {
       if (!this.isPaused && !this.isGameOver && this.timeRemaining > 0) {
         this.timeRemaining--;
-        this.renderTimer();
+        this.renderer.renderTimer(this.getTimerData());
 
         if (this.timeRemaining <= 0) {
           this.timeUp();
