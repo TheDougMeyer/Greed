@@ -9,6 +9,31 @@ import { sleep } from './utils/helpers.js';
 // Initialize game
 const game = new Game();
 
+// Helper function to initialize game based on mode
+async function initializeGame(modeConfig, settings) {
+  if (modeConfig.hasTimer && !modeConfig.isProgrammed) {
+    // Timer mode only
+    game.init(modeConfig, settings, { skipTimerStart: true });
+    await showCountdown(3);
+    game.startTimer();
+    game.enableControls();
+  } else if (modeConfig.isProgrammed && !modeConfig.hasTimer) {
+    // Pre-programmed mode only
+    game.init(modeConfig, settings);
+    // Controls already enabled for scripting by init()
+  } else if (modeConfig.isProgrammed && modeConfig.hasTimer) {
+    // Combined mode
+    game.init(modeConfig, settings, { skipTimerStart: true });
+    await showCountdown(3);
+    game.startTimer();  // Timer runs during scripting
+    // Controls already enabled for scripting
+  } else {
+    // Classic mode
+    game.init(modeConfig, settings);
+    game.enableControls();
+  }
+}
+
 // Welcome screen state
 let selectedMode = 'classic';
 let gameSettings = {
@@ -103,28 +128,8 @@ document.getElementById('start-game').addEventListener('click', async () => {
   runItContainer.style.display = modeConfig.isProgrammed ? 'flex' : 'none';
   console.log('Queue panel display set to:', queuePanel.style.display);
 
-  // Initialize based on mode
-  if (modeConfig.hasTimer && !modeConfig.isProgrammed) {
-    // Timer mode only
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();
-    game.enableControls();
-  } else if (modeConfig.isProgrammed && !modeConfig.hasTimer) {
-    // Pre-programmed mode only
-    game.init(modeConfig, gameSettings);
-    // Controls already enabled for scripting by init()
-  } else if (modeConfig.isProgrammed && modeConfig.hasTimer) {
-    // Combined mode
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();  // Timer runs during scripting
-    // Controls already enabled for scripting
-  } else {
-    // Classic mode
-    game.init(modeConfig, gameSettings);
-    game.enableControls();
-  }
+  // Initialize game
+  await initializeGame(modeConfig, gameSettings);
 });
 
 // Keyboard controls
@@ -148,16 +153,7 @@ document.addEventListener('keydown', (e) => {
 
   if (direction) {
     e.preventDefault();
-    console.log('Direction key pressed:', direction, 'isScriptingPhase:', game.isScriptingPhase);
-
-    // Route based on mode
-    if (game.isScriptingPhase) {
-      console.log('Routing to addMoveToScript');
-      game.addMoveToScript(direction);
-    } else if (!game.isGameOver && game.controlsEnabled) {
-      console.log('Routing to move');
-      game.move(direction);
-    }
+    game.routeDirectionInput(direction);
   }
 
   // Undo handling
@@ -179,12 +175,7 @@ document.addEventListener('keydown', (e) => {
 document.querySelectorAll('.arrow-controls button').forEach(btn => {
   btn.addEventListener('click', () => {
     const direction = btn.dataset.direction;
-
-    if (game.isScriptingPhase) {
-      game.addMoveToScript(direction);
-    } else if (game.controlsEnabled) {
-      game.move(direction);
-    }
+    game.routeDirectionInput(direction);
   });
 });
 
@@ -197,28 +188,8 @@ document.getElementById('restart').addEventListener('click', async () => {
   document.getElementById('game-over-overlay').classList.remove('visible');
   const modeConfig = GAME_MODES[selectedMode];
 
-  // Initialize based on mode
-  if (modeConfig.hasTimer && !modeConfig.isProgrammed) {
-    // Timer mode only
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();
-    game.enableControls();
-  } else if (modeConfig.isProgrammed && !modeConfig.hasTimer) {
-    // Pre-programmed mode only
-    game.init(modeConfig, gameSettings);
-    // Controls already enabled for scripting by init()
-  } else if (modeConfig.isProgrammed && modeConfig.hasTimer) {
-    // Combined mode
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();  // Timer runs during scripting
-    // Controls already enabled for scripting
-  } else {
-    // Classic mode
-    game.init(modeConfig, gameSettings);
-    game.enableControls();
-  }
+  // Initialize game
+  await initializeGame(modeConfig, gameSettings);
 });
 
 document.getElementById('undo').addEventListener('click', () => {
@@ -254,28 +225,8 @@ document.getElementById('play-again').addEventListener('click', async () => {
   document.getElementById('game-over-overlay').classList.remove('visible');
   const modeConfig = GAME_MODES[selectedMode];
 
-  // Initialize based on mode
-  if (modeConfig.hasTimer && !modeConfig.isProgrammed) {
-    // Timer mode only
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();
-    game.enableControls();
-  } else if (modeConfig.isProgrammed && !modeConfig.hasTimer) {
-    // Pre-programmed mode only
-    game.init(modeConfig, gameSettings);
-    // Controls already enabled for scripting by init()
-  } else if (modeConfig.isProgrammed && modeConfig.hasTimer) {
-    // Combined mode
-    game.init(modeConfig, gameSettings, { skipTimerStart: true });
-    await showCountdown(3);
-    game.startTimer();  // Timer runs during scripting
-    // Controls already enabled for scripting
-  } else {
-    // Classic mode
-    game.init(modeConfig, gameSettings);
-    game.enableControls();
-  }
+  // Initialize game
+  await initializeGame(modeConfig, gameSettings);
 });
 
 document.getElementById('main-menu').addEventListener('click', () => {
@@ -453,10 +404,5 @@ function handleSwipe() {
     direction = deltaY > 0 ? 'down' : 'up';
   }
 
-  // Route based on mode
-  if (game.isScriptingPhase) {
-    game.addMoveToScript(direction);
-  } else if (!game.isGameOver && game.controlsEnabled) {
-    game.move(direction);
-  }
+  game.routeDirectionInput(direction);
 }

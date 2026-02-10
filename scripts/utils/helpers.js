@@ -35,3 +35,16 @@ export function deepCopyGrid(grid) {
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+/**
+ * Check if coordinates represent a corner cell
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {boolean} - True if cell is a corner (0,0), (10,0), (0,10), or (10,10)
+ */
+export function isCornerCell(x, y) {
+  return (x === 0 && y === 0) ||
+         (x === 10 && y === 0) ||
+         (x === 0 && y === 10) ||
+         (x === 10 && y === 10);
+}

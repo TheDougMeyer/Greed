@@ -2,8 +2,9 @@
  * Main Game class - manages all game state and logic
  */
 
-import { shuffleArray, deepCopyGrid, sleep } from '../utils/helpers.js';
+import { shuffleArray, deepCopyGrid, sleep, isCornerCell } from '../utils/helpers.js';
 import { POWERUP_TYPES, isPowerupAllowedInMode, getEnabledPowerups } from '../config/powerups.js';
+import GameRenderer from '../view/GameRenderer.js';
 
 // Pre-programmed mode constants
 const MAX_SCRIPT_MOVES = 20;
@@ -11,7 +12,7 @@ const EXECUTION_DELAY_MS = 500;
 const SCRIPT_COMPLETION_BONUS_MULTIPLIER = 2;
 
 export default class Game {
-  constructor() {
+  constructor(renderer = null) {
     this.grid = [];
     this.playerPos = { x: 5, y: 5 };
     this.score = 0;
@@ -62,6 +63,9 @@ export default class Game {
     this.isExecutionPaused = false;
     this.currentExecutionIndex = -1;
     this.executionHistory = [];
+
+    // Renderer (dependency injection for testability)
+    this.renderer = renderer || new GameRenderer();
   }
 
   init(modeConfig = null, settings = {}, options = {}) {
@@ -202,6 +206,14 @@ export default class Game {
     this.controlsEnabled = false;
   }
 
+  routeDirectionInput(direction) {
+    if (this.isScriptingPhase) {
+      this.addMoveToScript(direction);
+    } else if (!this.isGameOver && this.controlsEnabled) {
+      this.move(direction);
+    }
+  }
+
   move(direction) {
     if (this.isGameOver || !this.controlsEnabled) return;
 
@@ -309,12 +321,7 @@ export default class Game {
 
     // Check for corner bonus
     let cornerBonus = 0;
-    const isCorner = (this.playerPos.x === 0 && this.playerPos.y === 0) ||
-                     (this.playerPos.x === 10 && this.playerPos.y === 0) ||
-                     (this.playerPos.x === 0 && this.playerPos.y === 10) ||
-                     (this.playerPos.x === 10 && this.playerPos.y === 10);
-
-    if (isCorner) {
+    if (isCornerCell(this.playerPos.x, this.playerPos.y)) {
       cornerBonus = 25;
     }
 
@@ -377,7 +384,7 @@ export default class Game {
     this.gameOverReason = '';
 
     // Hide game over overlay if visible
-    document.getElementById('game-over-overlay').classList.remove('visible');
+    this.renderer.hideGameOverOverlay();
 
     // Resume timer if it was running
     if (wasTimerRunning) this.resumeTimer();
@@ -407,8 +414,8 @@ export default class Game {
     this.scriptQueue.push({ direction, sequenceNumber });
     console.log('Move added to queue:', this.scriptQueue);
 
-    this.renderScriptQueue();
-    this.updateRunItButton();
+    this.renderer.renderScriptQueue(this.getScriptData());
+    this.renderer.updateRunItButton(this.scriptQueue.length > 0);
   }
 
   removeLastMoveFromScript() {
@@ -416,8 +423,8 @@ export default class Game {
 
     this.scriptQueue.pop();
 
-    this.renderScriptQueue();
-    this.updateRunItButton();
+    this.renderer.renderScriptQueue(this.getScriptData());
+    this.renderer.updateRunItButton(this.scriptQueue.length > 0);
   }
 
   clearScript() {
@@ -425,17 +432,10 @@ export default class Game {
 
     this.scriptQueue = [];
 
-    this.renderScriptQueue();
-    this.updateRunItButton();
+    this.renderer.renderScriptQueue(this.getScriptData());
+    this.renderer.updateRunItButton(this.scriptQueue.length > 0);
   }
 
-
-  updateRunItButton() {
-    const runItBtn = document.getElementById('run-it-btn');
-    if (runItBtn) {
-      runItBtn.disabled = this.scriptQueue.length === 0;
-    }
-  }
 
   // Pre-programmed mode: Execution phase methods
   startScriptExecution() {
@@ -478,7 +478,7 @@ export default class Game {
 
     // Get current move
     const move = this.scriptQueue[this.currentExecutionIndex];
-    this.renderScriptQueue();  // Highlight current
+    this.renderer.renderScriptQueue(this.getScriptData());  // Highlight current
 
     // Validate move
     const moveResult = this.calculateMove(move.direction);
@@ -548,14 +548,14 @@ export default class Game {
     if (!this.isExecutionPhase) return;
 
     this.isExecutionPaused = true;
-    this.renderPlaybackControls();
+    this.renderer.renderPlaybackControls(this.getPlaybackData());
   }
 
   resumeExecution() {
     if (!this.isExecutionPhase || !this.isExecutionPaused) return;
 
     this.isExecutionPaused = false;
-    this.renderPlaybackControls();
+    this.renderer.renderPlaybackControls(this.getPlaybackData());
 
     // Continue execution
     this.executeNextMove();
@@ -590,8 +590,6 @@ export default class Game {
     this.saveExecutionSnapshot(this.currentExecutionIndex);
 
     this.render();
-    this.renderScriptQueue();
-    this.renderPlaybackControls();
   }
 
   skipBackward() {
@@ -605,8 +603,6 @@ export default class Game {
     // Note: restoreExecutionSnapshot already sets currentExecutionIndex from snapshot.moveIndex
 
     this.render();
-    this.renderScriptQueue();
-    this.renderPlaybackControls();
   }
 
   skipToBeginning() {
@@ -619,8 +615,6 @@ export default class Game {
     this.restoreExecutionSnapshot(snapshot);
 
     this.render();
-    this.renderScriptQueue();
-    this.renderPlaybackControls();
   }
 
   skipToEnd() {
@@ -654,310 +648,109 @@ export default class Game {
       this.completeScriptExecution();
     } else {
       this.render();
-      this.renderScriptQueue();
-      this.renderPlaybackControls();
     }
   }
 
+  // Data getter methods for renderer
+  getGridData() {
+    return {
+      grid: this.grid,
+      playerPos: this.playerPos,
+      isPlacementMode: this.isPlacementMode,
+      placementType: this.placementType,
+      selectedCellPos: this.selectedCellPos
+    };
+  }
+
+  getInventoryData() {
+    return {
+      powerupsEnabled: this.powerupsEnabled,
+      inventory: this.inventory,
+      isPlacementMode: this.isPlacementMode,
+      placementType: this.placementType,
+      isGameOver: this.isGameOver
+    };
+  }
+
+  getTimerData() {
+    return {
+      timeRemaining: this.timeRemaining,
+      isExecutionPhase: this.isExecutionPhase,
+      isProgrammed: this.modeConfig?.isProgrammed || false
+    };
+  }
+
+  getScriptData() {
+    return {
+      scriptQueue: this.scriptQueue,
+      isExecutionPhase: this.isExecutionPhase,
+      currentExecutionIndex: this.currentExecutionIndex
+    };
+  }
+
+  getPlaybackData() {
+    return {
+      isExecutionPaused: this.isExecutionPaused,
+      currentExecutionIndex: this.currentExecutionIndex,
+      scriptQueueLength: this.scriptQueue.length
+    };
+  }
+
+  getExecutionUIData() {
+    return {
+      isScriptingPhase: this.isScriptingPhase,
+      isExecutionPhase: this.isExecutionPhase
+    };
+  }
+
   render() {
-    this.renderGrid();
-    this.renderScore();
-    this.updateUndoButton();
+    // Render grid with callbacks for placement mode
+    this.renderer.renderGrid(this.getGridData(), {
+      onWallClick: (x, y) => this.selectWallForBridge(x, y),
+      onCellClick: (x, y) => this.selectCellForTeleport(x, y)
+    });
+
+    // Render score and undo button
+    this.renderer.renderScore(this.score, this.highScore);
+    this.renderer.updateUndoButton(this.history.length > 0);
 
     // Render inventory if powerups enabled
     if (this.powerupsEnabled) {
-      this.renderInventory();
+      this.renderer.renderInventory(this.getInventoryData());
     }
 
     // Render timer if in timer mode
     if (this.modeConfig?.hasTimer) {
-      this.renderTimer();
+      this.renderer.renderTimer(this.getTimerData());
     }
 
     // Render pre-programmed mode UI
     if (this.modeConfig?.isProgrammed) {
-      this.renderExecutionUI();
+      this.renderer.renderScriptQueue(this.getScriptData());
+      this.renderer.renderExecutionUI(this.getExecutionUIData());
+
+      // Render playback controls if in execution phase
+      if (this.isExecutionPhase) {
+        this.renderer.renderPlaybackControls(this.getPlaybackData());
+      }
     }
 
+    // Render game over overlay
     if (this.isGameOver) {
-      this.renderGameOver();
+      // Cancel placement mode if active (game logic)
+      if (this.isPlacementMode) {
+        this.cancelPlacementMode();
+      }
+
+      // Stop timer if running (game logic)
+      this.stopTimer();
+
+      // Render overlay (visual update)
+      this.renderer.renderGameOver(this.gameOverReason, this.score);
     }
   }
 
-  renderGrid() {
-    const gridElement = document.getElementById('grid');
-    gridElement.innerHTML = '';
-
-    for (let y = 0; y < 11; y++) {
-      for (let x = 0; x < 11; x++) {
-        const cell = this.grid[y][x];
-        const cellDiv = document.createElement('div');
-        cellDiv.className = 'cell';
-
-        // Check for placed bridge or teleport first (regardless of wall status)
-        if (cell.hasBridge) {
-          // Placed bridge: black background + static cyan bridge icon
-          cellDiv.classList.add('placed-bridge');
-          const icon = document.createElement('img');
-          icon.src = 'assets/Bridge.svg';
-          icon.className = 'placed-bridge-icon';
-          cellDiv.appendChild(icon);
-        } else if (cell.hasTeleport) {
-          // Teleported cell: black background + static cyan teleport icon
-          cellDiv.classList.add('placed-teleport');
-          const icon = document.createElement('img');
-          icon.src = 'assets/Teleport.svg';
-          icon.className = 'placed-teleport-icon';
-          cellDiv.appendChild(icon);
-        } else if (cell.isWall) {
-          cellDiv.classList.add('wall');
-          cellDiv.textContent = 'X';
-        } else {
-          cellDiv.classList.add(`value-${cell.value}`);
-
-          // Show powerup icon if present
-          if (cell.powerup === 'bridge') {
-            cellDiv.classList.add('has-powerup');
-
-            // Add bridge icon
-            const icon = document.createElement('img');
-            icon.src = 'assets/Bridge.svg';
-            icon.className = 'powerup-icon';
-            cellDiv.appendChild(icon);
-
-            // Still show value as faded text
-            const valueText = document.createElement('span');
-            valueText.className = 'cell-value';
-            valueText.textContent = cell.value;
-            cellDiv.appendChild(valueText);
-          } else if (cell.powerup === 'teleport') {
-            cellDiv.classList.add('has-powerup');
-
-            // Add teleport icon
-            const icon = document.createElement('img');
-            icon.src = 'assets/Teleport.svg';
-            icon.className = 'powerup-icon';
-            cellDiv.appendChild(icon);
-
-            // Still show value as faded text
-            const valueText = document.createElement('span');
-            valueText.className = 'cell-value';
-            valueText.textContent = cell.value;
-            cellDiv.appendChild(valueText);
-          } else {
-            cellDiv.textContent = cell.value;
-          }
-        }
-
-        // Mark corner cells
-        const isCorner = (x === 0 && y === 0) ||
-                         (x === 10 && y === 0) ||
-                         (x === 0 && y === 10) ||
-                         (x === 10 && y === 10);
-        if (isCorner) {
-          cellDiv.classList.add('corner');
-        }
-
-        // Add player indicator
-        if (x === this.playerPos.x && y === this.playerPos.y) {
-          const player = document.createElement('div');
-          player.className = 'player';
-          cellDiv.appendChild(player);
-        }
-
-        gridElement.appendChild(cellDiv);
-      }
-    }
-
-    // Handle placement mode
-    const placementUI = document.getElementById('placement-ui');
-    if (this.isPlacementMode && this.placementType === 'bridge') {
-      // Show placement UI
-      if (placementUI) {
-        placementUI.style.display = 'flex';
-      }
-
-      // Update instruction text
-      const instructions = document.getElementById('placement-instructions');
-      if (instructions) {
-        instructions.textContent = 'Select a wall to convert to a bridge';
-      }
-
-      // Update place button state
-      const placeBtn = document.getElementById('place-bridge-btn');
-      if (placeBtn) {
-        placeBtn.disabled = !this.selectedCellPos;
-        placeBtn.style.display = 'block';
-      }
-
-      // Hide teleport button
-      const teleportBtn = document.getElementById('place-teleport-btn');
-      if (teleportBtn) {
-        teleportBtn.style.display = 'none';
-      }
-
-      // Add wall highlighting and click handlers
-      for (let y = 0; y < 11; y++) {
-        for (let x = 0; x < 11; x++) {
-          const cellIndex = y * 11 + x;
-          const cellDiv = gridElement.children[cellIndex];
-          const cell = this.grid[y][x];
-
-          if (cell.isWall) {
-            cellDiv.classList.add('wall-selectable');
-
-            // Highlight selected wall
-            if (this.selectedCellPos &&
-                this.selectedCellPos.x === x &&
-                this.selectedCellPos.y === y) {
-              cellDiv.classList.add('wall-selected');
-            }
-
-            // Make walls clickable
-            cellDiv.style.cursor = 'pointer';
-            cellDiv.addEventListener('click', () => {
-              this.selectWallForBridge(x, y);
-            });
-          }
-        }
-      }
-    } else if (this.isPlacementMode && this.placementType === 'teleport') {
-      // Show placement UI
-      if (placementUI) {
-        placementUI.style.display = 'flex';
-      }
-
-      // Update instruction text
-      const instructions = document.getElementById('placement-instructions');
-      if (instructions) {
-        instructions.textContent = 'Select a cell to teleport to';
-      }
-
-      // Update place button state
-      const placeBtn = document.getElementById('place-teleport-btn');
-      if (placeBtn) {
-        placeBtn.disabled = !this.selectedCellPos;
-        placeBtn.style.display = 'block';
-      }
-
-      // Hide bridge button
-      const bridgeBtn = document.getElementById('place-bridge-btn');
-      if (bridgeBtn) {
-        bridgeBtn.style.display = 'none';
-      }
-
-      // Add cell highlighting and click handlers
-      for (let y = 0; y < 11; y++) {
-        for (let x = 0; x < 11; x++) {
-          const cellIndex = y * 11 + x;
-          const cellDiv = gridElement.children[cellIndex];
-          const cell = this.grid[y][x];
-
-          // All non-wall cells (except player position) are selectable
-          if (!cell.isWall && !(x === this.playerPos.x && y === this.playerPos.y)) {
-            cellDiv.classList.add('cell-selectable');
-
-            // Highlight selected cell
-            if (this.selectedCellPos &&
-                this.selectedCellPos.x === x &&
-                this.selectedCellPos.y === y) {
-              cellDiv.classList.add('cell-selected');
-            }
-
-            cellDiv.style.cursor = 'pointer';
-            cellDiv.addEventListener('click', () => {
-              this.selectCellForTeleport(x, y);
-            });
-          }
-        }
-      }
-    } else {
-      // Hide placement UI
-      if (placementUI) {
-        placementUI.style.display = 'none';
-      }
-    }
-  }
-
-  renderScore() {
-    document.getElementById('score').textContent = this.score;
-    document.getElementById('high-score').textContent = this.highScore;
-  }
-
-  renderInventory() {
-    const panel = document.getElementById('inventory-panel');
-    const bridgeBtn = document.getElementById('bridge-inventory-btn');
-    const bridgeCount = document.getElementById('bridge-count');
-    const teleportBtn = document.getElementById('teleport-inventory-btn');
-    const teleportCount = document.getElementById('teleport-count');
-
-    if (!panel) return;
-
-    // Show panel only if powerups enabled
-    panel.style.display = this.powerupsEnabled ? 'block' : 'none';
-
-    // Update bridge count
-    bridgeCount.textContent = this.inventory.bridges;
-
-    // Enable bridge button if bridges available and not in placement mode
-    const canActivateBridge = this.inventory.bridges > 0 &&
-                               !this.isPlacementMode &&
-                               !this.isGameOver;
-    bridgeBtn.disabled = !canActivateBridge;
-
-    // Highlight bridge if in placement mode
-    if (this.isPlacementMode && this.placementType === 'bridge') {
-      bridgeBtn.classList.add('active');
-    } else {
-      bridgeBtn.classList.remove('active');
-    }
-
-    // Update teleport count
-    teleportCount.textContent = this.inventory.teleports;
-
-    // Enable teleport button if teleports available and not in placement mode
-    const canActivateTeleport = this.inventory.teleports > 0 &&
-                                 !this.isPlacementMode &&
-                                 !this.isGameOver;
-    teleportBtn.disabled = !canActivateTeleport;
-
-    // Highlight teleport if in placement mode
-    if (this.isPlacementMode && this.placementType === 'teleport') {
-      teleportBtn.classList.add('active');
-    } else {
-      teleportBtn.classList.remove('active');
-    }
-  }
-
-  renderGameOver() {
-    // Cancel placement mode if active
-    if (this.isPlacementMode) {
-      this.cancelPlacementMode();
-    }
-
-    const overlay = document.getElementById('game-over-overlay');
-    const reasonElement = document.getElementById('game-over-reason');
-    const finalScoreElement = document.getElementById('final-score');
-
-    const reasons = {
-      'wall collision': 'You hit a wall!',
-      'out of bounds': 'You moved off the grid!',
-      'time expired': 'Time ran out!',
-      'script complete': 'Script Complete! 🎉'
-    };
-
-    reasonElement.textContent = reasons[this.gameOverReason];
-    finalScoreElement.textContent = this.score;
-    overlay.classList.add('visible');
-
-    // Stop timer if running
-    this.stopTimer();
-  }
-
-  updateUndoButton() {
-    const undoButton = document.getElementById('undo');
-    undoButton.disabled = this.history.length === 0;
-  }
+  // Rendering methods moved to GameRenderer class
 
   // Bridge placement methods
   activateBridgePlacement() {
@@ -1032,9 +825,7 @@ export default class Game {
     this.history = [this.history[this.history.length - 1]];  // Keep only this snapshot
 
     // Record in move history
-    const isCorner = (x === 0 && y === 0) || (x === 10 && y === 0) ||
-                     (x === 0 && y === 10) || (x === 10 && y === 10);
-    const cornerNote = isCorner ? ' (corner)' : '';
+    const cornerNote = isCornerCell(x, y) ? ' (corner)' : '';
     this.moveHistory.push(`🌉 Bridge placed at (${x}, ${y})${cornerNote}`);
 
     // Re-enable controls
@@ -1099,12 +890,7 @@ export default class Game {
 
     // Check for corner bonus
     let cornerBonus = 0;
-    const isCorner = (destX === 0 && destY === 0) ||
-                     (destX === 10 && destY === 0) ||
-                     (destX === 0 && destY === 10) ||
-                     (destX === 10 && destY === 10);
-
-    if (isCorner) {
+    if (isCornerCell(destX, destY)) {
       cornerBonus = 25;
     }
 
@@ -1271,146 +1057,5 @@ export default class Game {
     this.render();
   }
 
-  renderTimer() {
-    if (!this.modeConfig?.hasTimer) return;
-
-    const timerDisplay = document.getElementById('timer');
-    const timerColumn = document.getElementById('timer-display');
-    if (!timerDisplay || !timerColumn) return;
-
-    // Hide timer during execution phase in combined mode
-    if (this.isExecutionPhase && this.modeConfig?.isProgrammed) {
-      timerColumn.style.opacity = '0.3';  // Fade out
-      timerColumn.style.pointerEvents = 'none';
-      return;  // Don't update the display
-    }
-
-    // Show timer during scripting or non-programmed modes
-    timerColumn.style.opacity = '1';
-    timerColumn.style.pointerEvents = 'auto';
-
-    const minutes = Math.floor(this.timeRemaining / 60);
-    const seconds = this.timeRemaining % 60;
-    timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-    // Add warning styling when time is low
-    if (this.timeRemaining <= 10) {
-      timerColumn.classList.add('timer-warning');
-    } else {
-      timerColumn.classList.remove('timer-warning');
-    }
-  }
-
-  // Pre-programmed mode: Rendering methods
-  renderScriptQueue() {
-    const queueTable = document.getElementById('script-queue-table');
-    if (!queueTable) return;
-
-    // Clear table
-    queueTable.innerHTML = '';
-
-    if (this.scriptQueue.length === 0) {
-      const emptyDiv = document.createElement('div');
-      emptyDiv.className = 'queue-empty';
-      emptyDiv.textContent = 'Queue empty';
-      queueTable.appendChild(emptyDiv);
-      return;
-    }
-
-    // Direction symbols
-    const directionSymbols = {
-      up: '⬆️',
-      down: '⬇️',
-      left: '⬅️',
-      right: '➡️'
-    };
-
-    // Render each move
-    this.scriptQueue.forEach((move, index) => {
-      const item = document.createElement('div');
-      item.className = 'queue-item';
-
-      // Highlight current move during execution
-      if (this.isExecutionPhase && index === this.currentExecutionIndex) {
-        item.classList.add('current');
-      }
-
-      // Mark executed moves
-      if (this.isExecutionPhase && index < this.currentExecutionIndex) {
-        item.classList.add('executed');
-      }
-
-      const numberSpan = document.createElement('span');
-      numberSpan.className = 'move-number';
-      numberSpan.textContent = `${move.sequenceNumber}`;
-
-      const arrowSpan = document.createElement('span');
-      arrowSpan.className = 'move-arrow';
-      arrowSpan.textContent = directionSymbols[move.direction];
-
-      item.appendChild(numberSpan);
-      item.appendChild(arrowSpan);
-
-      queueTable.appendChild(item);
-    });
-
-    // Auto-scroll to current move
-    if (this.isExecutionPhase && this.currentExecutionIndex >= 0) {
-      const currentItem = queueTable.querySelector('.queue-item.current');
-      if (currentItem) {
-        currentItem.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }
-    }
-  }
-
-  renderExecutionUI() {
-    const scriptingControls = document.getElementById('scripting-controls');
-    const playbackControls = document.getElementById('playback-controls');
-
-    if (!scriptingControls || !playbackControls) return;
-
-    if (this.isScriptingPhase) {
-      // Show scripting controls (Clear, Undo, Run It)
-      scriptingControls.style.display = 'flex';
-      playbackControls.style.display = 'none';
-    } else if (this.isExecutionPhase) {
-      // Show playback controls
-      scriptingControls.style.display = 'none';
-      playbackControls.style.display = 'flex';
-      this.renderPlaybackControls();
-    }
-
-    // Always render queue
-    this.renderScriptQueue();
-  }
-
-  renderPlaybackControls() {
-    const playPauseBtn = document.getElementById('play-pause-btn');
-    const skipToStartBtn = document.getElementById('skip-to-start-btn');
-    const skipBackBtn = document.getElementById('skip-back-btn');
-    const skipForwardBtn = document.getElementById('skip-forward-btn');
-    const skipToEndBtn = document.getElementById('skip-to-end-btn');
-
-    if (!playPauseBtn) return;
-
-    // Update play/pause button
-    playPauseBtn.textContent = this.isExecutionPaused ? '▶ Play' : '⏸ Pause';
-
-    // Disable buttons at boundaries
-    if (skipToStartBtn) {
-      skipToStartBtn.disabled = this.currentExecutionIndex < 0;
-    }
-    if (skipBackBtn) {
-      skipBackBtn.disabled = this.currentExecutionIndex < 0;
-    }
-    if (skipForwardBtn) {
-      skipForwardBtn.disabled = this.currentExecutionIndex >= this.scriptQueue.length - 1;
-    }
-    if (skipToEndBtn) {
-      skipToEndBtn.disabled = this.currentExecutionIndex >= this.scriptQueue.length - 1;
-    }
-  }
+  // Timer and pre-programmed mode rendering methods moved to GameRenderer class
 }
